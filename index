@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Dino Dash: Fraction Gates</title>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --ground: #a3d977; --sky: #87ceeb;
+            --dino: #4a8c3f; --dino-dark: #356a2e;
+            --nest-full: #22c55e; --egg-border: #d4a054;
+            --correct: #4ade80; --wrong: #f87171;
+            --text: #1e293b; --text-light: #64748b;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Fredoka', sans-serif;
+            display: flex; flex-direction: column;
+            justify-content: center; align-items: center;
+            min-height: 100vh;
+            background: linear-gradient(180deg, var(--sky) 0%, #b8e6f0 60%, var(--ground) 60%, #8bc34a 100%);
+            user-select: none; -webkit-user-select: none;
+            -webkit-touch-callout: none;
+            padding: 8px;
+        }
+
+        #game-container {
+            width: 700px; max-width: 100vw; height: 260px;
+            border: 3px solid #5a3e28; border-radius: 16px;
+            position: relative;
+            background: linear-gradient(180deg, #d4f1ff 0%, #eaf6ff 70%, #c8e6a0 70%, #a3d977 100%);
+            overflow: hidden;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.15);
+        }
+        .cloud { position: absolute; background: white; border-radius: 50px; opacity: 0.7; }
+        .cloud-1 { width: 80px; height: 25px; top: 20px; left: 100px; animation: drift 12s linear infinite; }
+        .cloud-2 { width: 60px; height: 20px; top: 45px; left: 350px; animation: drift 18s linear infinite; }
+        .cloud-3 { width: 100px; height: 30px; top: 15px; left: 550px; animation: drift 15s linear infinite; }
+        @keyframes drift { 0% { transform: translateX(0); } 100% { transform: translateX(-750px); } }
+
+        #dino { width: 50px; height: 50px; position: absolute; bottom: 22px; left: 60px; z-index: 5; transition: transform 0.3s; }
+        #dino svg { width: 100%; height: 100%; }
+        .dino-body { fill: var(--dino); } .dino-belly { fill: #7ec870; }
+        .dino-eye { fill: white; } .dino-pupil { fill: #1a1a2e; }
+        .dino-arm { fill: var(--dino); transform-origin: 28px 52px; transition: transform 0.1s; }
+        .dino-leg-back { fill: var(--dino-dark); transform-origin: 30px 70px; transition: transform 0.1s; }
+        .dino-leg-front { fill: var(--dino); }
+        .dino-punching .dino-arm { transform: rotate(-50deg) scale(1.3); }
+        .dino-super-punching svg .dino-body { fill: #f59e0b !important; }
+        .dino-super-punching .dino-arm { transform: rotate(-70deg) scale(1.5); }
+        .dino-kicking .dino-leg-back { transform: rotate(-60deg); }
+        .dino-gold svg .dino-body { fill: #fbbf24 !important; filter: drop-shadow(0 0 8px #fbbf24); }
+        .dino-giant { transform: scale(1.5); transform-origin: bottom left; }
+        .animate-jump { animation: jump 0.6s ease-out; }
+        @keyframes jump { 0% { bottom: 22px; } 35% { bottom: 160px; } 65% { bottom: 160px; } 100% { bottom: 22px; } }
+
+        #obstacle { width: 50px; height: 50px; position: absolute; bottom: 22px; left: 700px; z-index: 4; }
+        .obstacle-svg { width: 100%; height: 100%; }
+        .obstacle-cactus { width: 30px; height: 50px; }
+        .obstacle-stickman { width: 30px; height: 55px; }
+        .obstacle-boss { width: 55px; height: 90px; }
+        .obstacle-rock { width: 45px; height: 35px; }
+        .obstacle-coin { width: 30px; height: 30px; bottom: 70px; position: absolute; }
+        .defeated { transform: rotate(90deg) translate(50px,-80px); opacity: 0; transition: all 0.5s ease-out; }
+        .rock-smashed { animation: fly-away 0.5s forwards; }
+        @keyframes fly-away { 0%{transform:rotate(0)}100%{transform:rotate(360deg) translate(200px,-200px);opacity:0} }
+
+        #gate-marker { position: absolute; bottom: 0; width: 60px; height: 100%; display: none; z-index: 3; pointer-events: none; }
+        .gate-pillar { position: absolute; bottom: 0; width: 12px; height: 100%; border-radius: 6px 6px 0 0; }
+        .gate-pillar-left { left: 0; background: linear-gradient(180deg, #fbbf24, #f97316); }
+        .gate-pillar-right { right: 0; background: linear-gradient(180deg, #fbbf24, #f97316); }
+        .gate-arch { position: absolute; top: 10px; left: 0; right: 0; height: 20px; background: linear-gradient(90deg, #fbbf24, #f59e0b, #fbbf24); border-radius: 10px 10px 0 0; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: #7c2d12; }
+        .gate-glow { position: absolute; inset: 0; background: radial-gradient(ellipse at center, rgba(251,191,36,0.3), transparent 70%); animation: gate-pulse 1s ease-in-out infinite alternate; }
+        @keyframes gate-pulse { 0%{opacity:0.4}100%{opacity:1} }
+
+        /* Quick-fire popup */
+        #tt-popup { display:none; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); z-index:15; border:3px solid; border-radius:16px; padding:14px 20px; text-align:center; min-width:260px; max-width:90%; }
+        #tt-popup.active { display:block; }
+        #tt-popup.tt-mode { background:linear-gradient(135deg,#fdf2f8,#fce7f3); border-color:#f472b6; box-shadow:0 8px 24px rgba(244,114,182,0.3); }
+        #tt-popup.alg-mode { background:linear-gradient(135deg,#eff6ff,#dbeafe); border-color:#60a5fa; box-shadow:0 8px 24px rgba(96,165,250,0.3); }
+        .tt-question { font-size:1.3rem; font-weight:700; margin-bottom:4px; white-space:pre-line; }
+        .tt-mode .tt-question { color:#831843; } .alg-mode .tt-question { color:#1e3a8a; }
+        .tt-sub { font-size:0.8rem; margin-bottom:10px; }
+        .tt-mode .tt-sub { color:#9d174d; } .alg-mode .tt-sub { color:#1d4ed8; }
+        .tt-input-row { display:flex; align-items:center; justify-content:center; gap:6px; }
+        .tt-input { width:4rem; padding:0.3rem; border-radius:8px; border:2px solid #d1d5db; background:white; font-family:'Space Mono',monospace; font-size:1.1rem; text-align:center; font-weight:700; color:var(--text); }
+        .tt-input:focus { outline:none; border-color:#ec4899; box-shadow:0 0 0 3px rgba(236,72,153,0.2); }
+        .tt-btn { font-family:'Fredoka',sans-serif; padding:0.4rem 1rem; border-radius:8px; border:2px solid; color:white; font-weight:600; font-size:1rem; cursor:pointer; }
+        .tt-mode .tt-btn { border-color:#f472b6; background:linear-gradient(135deg,#f472b6,#ec4899); }
+        .alg-mode .tt-btn { border-color:#60a5fa; background:linear-gradient(135deg,#60a5fa,#3b82f6); }
+        .tt-timer { margin-top:6px; }
+        .tt-timer-bar { height:4px; border-radius:2px; margin-top:3px; overflow:hidden; background:#fce7f3; }
+        .tt-timer-fill { height:100%; border-radius:2px; transition:width 0.1s linear; background:linear-gradient(90deg,#ec4899,#f472b6); }
+
+        /* HUD */
+        #score-board { position:absolute; top:10px; right:16px; font-size:18px; font-weight:700; color:var(--text); background:rgba(255,255,255,0.85); padding:4px 12px; border-radius:20px; border:2px solid #e2e8f0; }
+        #lives-display { position:absolute; top:10px; left:16px; font-size:16px; }
+        #next-gate-hint { position:absolute; top:10px; left:50%; transform:translateX(-50%); font-size:12px; font-weight:600; color:#92400e; background:rgba(251,191,36,0.25); padding:3px 10px; border-radius:10px; border:1px solid rgba(251,191,36,0.5); }
+        #boss-warning { position:absolute; top:35%; width:100%; text-align:center; font-size:28px; color:red; font-weight:700; display:none; animation:blink 0.5s infinite; z-index:6; }
+        @keyframes blink { 0%,100%{opacity:1}50%{opacity:0} }
+        #controls-hint { position:absolute; bottom:6px; left:50%; transform:translateX(-50%); font-size:11px; color:var(--text-light); background:rgba(255,255,255,0.8); padding:3px 10px; border-radius:10px; white-space:nowrap; }
+        .heart-gain { position:absolute; top:30px; left:16px; font-size:1.2rem; font-weight:700; color:#dc2626; pointer-events:none; animation:heart-float 1s ease-out forwards; }
+        @keyframes heart-float { 0%{transform:translateY(0) scale(1);opacity:1}100%{transform:translateY(-40px) scale(1.4);opacity:0} }
+
+        /* Start screen */
+        #start-message { position:absolute; inset:0; display:flex; flex-direction:column; justify-content:center; align-items:center; background:rgba(255,255,255,0.92); z-index:20; border-radius:16px; padding:10px; }
+        #start-message h2 { font-size:28px; color:var(--dino); margin-bottom:4px; }
+        #start-message p { font-size:14px; color:var(--text-light); max-width:420px; text-align:center; line-height:1.4; }
+        .start-emoji { font-size:48px; margin-bottom:8px; }
+        .start-btn { margin-top:12px; font-family:'Fredoka',sans-serif; font-size:18px; font-weight:700; color:white; background:linear-gradient(135deg,var(--dino),#3a7a2f); border:3px solid #2d5a1e; border-radius:14px; padding:12px 36px; cursor:pointer; -webkit-appearance:none; appearance:none; }
+        .start-btn:active { transform:scale(0.95); background:#3a7a2f; }
+
+        /* Touch controls */
+        #touch-controls { display:none; width:700px; max-width:100vw; margin-top:8px; gap:6px; justify-content:center; }
+        .touch-btn { font-family:'Fredoka',sans-serif; padding:12px 8px; border-radius:12px; border:2px solid #d1d5db; background:white; font-size:15px; font-weight:600; color:var(--text); cursor:pointer; flex:1; text-align:center; -webkit-appearance:none; appearance:none; }
+        .touch-btn:active { background:#f1f5f9; transform:scale(0.95); }
+        @media (pointer:coarse),(hover:none) { #touch-controls{display:flex} #controls-hint{display:none} }
+
+        /* Gate overlay */
+        #gate-overlay { display:none; position:fixed; inset:0; background:rgba(10,20,40,0.85); backdrop-filter:blur(6px); z-index:100; justify-content:center; align-items:flex-start; padding:0.75rem; overflow-y:auto; -webkit-overflow-scrolling:touch; }
+        #gate-overlay.active { display:flex; }
+        #gate-panel { width:100%; max-width:660px; background:linear-gradient(145deg,#fefce8,#fef9c3); border-radius:20px; border:3px solid #a16207; box-shadow:0 0 60px rgba(161,98,7,0.3),0 20px 40px rgba(0,0,0,0.3); padding:1rem 1.25rem 1.25rem; display:flex; flex-direction:column; gap:0.6rem; position:relative; margin:auto 0; }
+        .gate-header { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.3rem; }
+        .gate-title { font-size:1.2rem; font-weight:700; color:#713f12; display:flex; align-items:center; gap:0.4rem; }
+        .gate-badge { font-size:0.75rem; padding:0.2rem 0.6rem; border-radius:999px; background:#fef9c3; border:1px solid #ca8a04; color:#713f12; font-weight:600; }
+        .gate-story { background:linear-gradient(135deg,#fef3c7,#fde68a); border-radius:12px; border:2px solid #d97706; padding:0.5rem 0.7rem; font-size:0.85rem; line-height:1.4; color:#78350f; }
+        .gate-story strong { color:#92400e; }
+        .gate-problem { background:white; border-radius:12px; border:2px solid #fde68a; padding:0.5rem 0.7rem; display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap; }
+        .gate-problem-label { font-size:0.85rem; color:var(--text-light); font-weight:600; }
+        .gate-fraction { display:inline-flex; flex-direction:column; align-items:center; font-size:1.3rem; font-weight:700; color:#92400e; }
+        .gate-fraction .num { border-bottom:2px solid #d97706; padding:0 0.4rem 0.1rem; min-width:1.8rem; text-align:center; }
+        .gate-fraction .den { padding:0.1rem 0.4rem 0; min-width:1.8rem; text-align:center; }
+        .gate-mixed { display:inline-flex; align-items:center; gap:0.3rem; font-size:1.3rem; font-weight:700; color:#92400e; }
+        .gate-hint-text { font-size:0.8rem; color:var(--text-light); line-height:1.3; }
+        .gate-visual { background:linear-gradient(135deg,#fefce8,#fef9c3); border-radius:14px; border:2px solid #d4a054; padding:0.6rem; display:flex; flex-direction:column; gap:0.4rem; }
+        .gate-visual-title { font-size:0.78rem; font-weight:600; color:#78350f; }
+        .gate-belt { display:flex; align-items:center; gap:0.25rem; padding:0.35rem; background:linear-gradient(135deg,#fff7ed,#ffedd5); border-radius:10px; border:2px dashed #d4a054; flex-wrap:wrap; min-height:44px; }
+        .gate-belt-label { font-size:0.72rem; color:#9a3412; font-weight:600; white-space:nowrap; margin-right:0.2rem; }
+        .gate-egg { width:26px; height:32px; border-radius:50% 50% 50% 50%/60% 60% 40% 40%; background:radial-gradient(ellipse at 35% 30%,#fffbeb,#fde68a,#f5d07a); border:2px solid var(--egg-border); box-shadow:0 2px 6px rgba(180,130,60,0.3); cursor:grab; flex-shrink:0; transition:transform 0.1s; position:relative; }
+        .gate-egg::after { content:""; position:absolute; top:5px; left:6px; width:7px; height:4px; background:rgba(255,255,255,0.5); border-radius:50%; transform:rotate(-20deg); }
+        .gate-egg::before { content:""; position:absolute; top:11px; left:9px; width:3px; height:3px; border-radius:50%; background:#c4956a; box-shadow:4px -3px 0 #c4956a,-2px 2px 0 #c4956a,6px 3px 0 #c4956a; opacity:0.5; }
+        .gate-egg:active { cursor:grabbing; transform:scale(0.95); }
+        .gate-pod-area { display:grid; grid-template-columns:repeat(auto-fit,minmax(90px,1fr)); gap:0.4rem; }
+        .gate-nest { background:linear-gradient(135deg,#fef3c7,#fde68a); border-radius:12px; border:2px solid #a16207; padding:0.3rem; display:flex; flex-direction:column; gap:0.2rem; transition:border-color 0.3s,box-shadow 0.3s; position:relative; }
+        .gate-nest::after { content:""; position:absolute; bottom:0; left:4px; right:4px; height:8px; background:repeating-linear-gradient(70deg,#b8860b 0px,#b8860b 3px,#d4a054 3px,#d4a054 6px,#c4956a 6px,#c4956a 9px); border-radius:0 0 10px 10px; opacity:0.35; }
+        .gate-nest.full { border-color:var(--nest-full); box-shadow:0 0 14px rgba(34,197,94,0.35); }
+        .gate-nest-header { display:flex; justify-content:space-between; align-items:center; font-size:0.68rem; color:#78350f; padding:0 0.1rem; }
+        .gate-nest-header strong { color:#713f12; }
+        .gate-nest-slots { font-size:0.62rem; padding:0.1rem 0.3rem; border-radius:999px; background:#fffbeb; border:1px solid #d4a054; }
+        .gate-nest-inner { min-height:38px; padding:0.15rem; border-radius:8px; background:linear-gradient(135deg,#fffbeb,#fef9c3); border:2px dashed #d4a054; display:flex; flex-wrap:wrap; align-content:flex-start; gap:0.12rem; position:relative; z-index:1; }
+        .gate-nest.full .gate-nest-inner { border-color:#86efac; background:linear-gradient(135deg,#f0fdf4,#dcfce7); }
+        .gate-nest.crate-closed { cursor:pointer; border-color:#7c3aed; background:linear-gradient(135deg,#ede9fe,#ddd6fe); }
+        .gate-nest.crate-closed .gate-nest-inner { border-color:#a78bfa; background:linear-gradient(135deg,#f5f3ff,#ede9fe); justify-content:center; align-items:center; min-height:44px; }
+        .gate-nest.crate-open { border-color:#22c55e; }
+        .crate-label { font-size:0.75rem; color:#6d28d9; font-weight:600; }
+        .gate-answer { background:white; border-radius:12px; border:2px solid #fde68a; padding:0.5rem 0.7rem; display:flex; flex-direction:column; gap:0.4rem; }
+        .gate-answer-title { font-size:0.82rem; font-weight:600; color:var(--text); }
+        .gate-answer-row { display:flex; align-items:center; gap:0.4rem; flex-wrap:wrap; }
+        .gate-answer-row label { font-size:0.78rem; color:var(--text-light); font-weight:600; }
+        .gate-input { width:3rem; padding:0.25rem 0.3rem; border-radius:8px; border:2px solid #d1d5db; background:#fafafa; font-family:'Space Mono',monospace; font-size:0.95rem; text-align:center; color:var(--text); font-weight:700; -webkit-appearance:none; }
+        .gate-input:focus { outline:none; border-color:#f59e0b; box-shadow:0 0 0 3px rgba(245,158,11,0.2); }
+        .gate-frac-line { width:1.8rem; height:2px; background:#9ca3af; }
+        .gate-denom-display { font-family:'Space Mono',monospace; font-size:0.95rem; font-weight:700; color:var(--text); }
+        .gate-answer-group { display:inline-flex; flex-direction:column; align-items:center; gap:0.1rem; }
+        .gate-step-label { font-size:0.72rem; color:var(--text-light); font-weight:600; }
+        .gate-buttons { display:flex; gap:0.4rem; flex-wrap:wrap; }
+        .gate-btn { font-family:'Fredoka',sans-serif; border-radius:10px; padding:0.4rem 0.9rem; font-size:0.9rem; font-weight:600; cursor:pointer; border:2px solid; display:inline-flex; align-items:center; gap:0.3rem; -webkit-appearance:none; }
+        .gate-btn:active { transform:scale(0.96); }
+        .gate-btn-check { background:linear-gradient(135deg,#4ade80,#22c55e); border-color:#16a34a; color:white; }
+        .gate-btn-hint { background:white; border-color:#d1d5db; color:var(--text-light); }
+        .gate-btn-skip { background:#fef3c7; border-color:#fcd34d; color:#92400e; }
+        .gate-feedback { display:flex; align-items:flex-start; gap:0.4rem; padding:0.4rem 0.5rem; border-radius:10px; background:#f8fafc; border:2px solid #e2e8f0; font-size:0.82rem; line-height:1.35; color:var(--text); min-height:2.2rem; }
+        .gate-feedback.correct { background:#f0fdf4; border-color:#86efac; }
+        .gate-feedback.wrong { background:#fef2f2; border-color:#fca5a5; }
+        .gate-feedback-avatar { font-size:1.4rem; flex-shrink:0; }
+        .gate-feedback-text { flex:1; }
+        .gate-feedback-text strong { font-weight:700; }
+        .reward-pop { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); font-size:1.8rem; font-weight:700; color:#fbbf24; pointer-events:none; animation:pop-up 1s ease-out forwards; z-index:110; text-shadow:0 2px 8px rgba(0,0,0,0.3); }
+        @keyframes pop-up { 0%{transform:translate(-50%,-50%) scale(0.5);opacity:0}30%{transform:translate(-50%,-70%) scale(1.2);opacity:1}100%{transform:translate(-50%,-120%) scale(1);opacity:0} }
+
+        /* Error display (hidden unless JS fails) */
+        #error-box { display:none; position:fixed; bottom:10px; left:10px; right:10px; background:#fef2f2; border:2px solid #f87171; border-radius:8px; padding:8px 12px; font-size:12px; color:#991b1b; z-index:9999; max-height:120px; overflow:auto; }
+    </style>
+</head>
+<body>
+
+<div id="error-box"></div>
+
+<div id="game-container">
+    <div class="cloud cloud-1"></div>
+    <div class="cloud cloud-2"></div>
+    <div class="cloud cloud-3"></div>
+
+    <div id="dino">
+        <svg viewBox="0 0 80 90" xmlns="http://www.w3.org/2000/svg">
+            <ellipse class="dino-body" cx="38" cy="48" rx="22" ry="26"/>
+            <ellipse class="dino-belly" cx="35" cy="54" rx="13" ry="16"/>
+            <ellipse class="dino-body" cx="52" cy="22" rx="18" ry="16"/>
+            <circle class="dino-eye" cx="58" cy="18" r="6"/>
+            <circle class="dino-pupil" cx="60" cy="18" r="3"/>
+            <path d="M62 28 Q 55 34 48 28" fill="none" stroke="#2d5a1e" stroke-width="2" stroke-linecap="round"/>
+            <path class="dino-body" d="M16 40 Q 4 30 8 50 Q 12 58 20 55"/>
+            <rect class="dino-leg-back" x="28" y="68" width="8" height="16" rx="4"/>
+            <rect class="dino-leg-front" x="42" y="68" width="8" height="16" rx="4"/>
+            <rect class="dino-arm" x="52" y="40" width="14" height="6" rx="3"/>
+            <path class="dino-body" d="M22 24 L26 14 L30 24 M28 22 L32 12 L36 22 M34 22 L38 14 L42 24" fill="var(--dino-dark)" opacity="0.7"/>
+        </svg>
+    </div>
+
+    <div id="obstacle"></div>
+
+    <div id="gate-marker">
+        <div class="gate-pillar gate-pillar-left"></div>
+        <div class="gate-pillar gate-pillar-right"></div>
+        <div class="gate-arch">🥚 EGGS!</div>
+        <div class="gate-glow"></div>
+    </div>
+
+    <div id="tt-popup">
+        <div class="tt-question" id="tt-question"></div>
+        <div class="tt-sub" id="tt-sub"></div>
+        <div class="tt-input-row">
+            <input type="number" class="tt-input" id="tt-input" inputmode="numeric" pattern="[0-9]*">
+            <button type="button" class="tt-btn" id="tt-go">Go!</button>
+        </div>
+        <div class="tt-timer"><div class="tt-timer-bar"><div class="tt-timer-fill" id="tt-timer-fill"></div></div></div>
+    </div>
+
+    <div id="score-board">Score: 0</div>
+    <div id="lives-display">❤️❤️❤️</div>
+    <div id="next-gate-hint">Gate at: 200</div>
+    <div id="controls-hint">Space=Jump · A=Punch · W=Super · S=Kick</div>
+    <div id="boss-warning">BIG BOSS!</div>
+
+    <div id="start-message">
+        <div class="start-emoji">🦕</div>
+        <h2 id="start-title">Dino Dash: Fraction Gates</h2>
+        <p id="start-desc">Run, jump and fight obstacles! Answer quick maths for extra lives, and solve Fraction Gates to earn big bonus points.</p>
+        <button type="button" class="start-btn" onclick="window.DINO.start()">&#9654; Tap to Start</button>
+    </div>
+</div>
+
+<div id="touch-controls">
+    <button type="button" class="touch-btn" onclick="window.DINO.jump()">⬆ Jump</button>
+    <button type="button" class="touch-btn" onclick="window.DINO.punch()">👊 Punch</button>
+    <button type="button" class="touch-btn" onclick="window.DINO.superPunch()">💥 Super</button>
+    <button type="button" class="touch-btn" onclick="window.DINO.kick()">🦶 Kick</button>
+</div>
+
+<div id="gate-overlay">
+    <div id="gate-panel">
+        <div class="gate-header">
+            <div class="gate-title">🪺 <span id="gate-title-text">Dino Nest Gate</span></div>
+            <div class="gate-badge" id="gate-badge">Gate 1</div>
+        </div>
+        <div class="gate-story" id="gate-story"></div>
+        <div class="gate-problem" id="gate-problem"></div>
+        <div class="gate-visual" id="gate-visual">
+            <div class="gate-visual-title" id="gate-visual-title">🪺 Drag the eggs into the nests</div>
+            <div class="gate-belt" id="gate-belt"><span class="gate-belt-label">🥚 Eggs:</span></div>
+            <div class="gate-pod-area" id="gate-pod-area"></div>
+        </div>
+        <div class="gate-answer" id="gate-answer-section"></div>
+        <div class="gate-buttons">
+            <button type="button" class="gate-btn gate-btn-check" id="gate-check" onclick="window.DINO.gateCheck()">✅ Check</button>
+            <button type="button" class="gate-btn gate-btn-hint" id="gate-auto" onclick="window.DINO.gateHint()">💡 Hint</button>
+            <button type="button" class="gate-btn gate-btn-skip" id="gate-skip" onclick="window.DINO.gateSkip()">⏭ Skip</button>
+        </div>
+        <div class="gate-feedback" id="gate-feedback">
+            <span class="gate-feedback-avatar">🦕</span>
+            <span class="gate-feedback-text" id="gate-feedback-text"></span>
+        </div>
+    </div>
+</div>
+
+<script>
+// Global error handler — shows errors visibly so we can debug on iPad
+window.onerror = function(msg, url, line) {
+    var box = document.getElementById("error-box");
+    if (box) { box.style.display = "block"; box.textContent = "JS Error line " + line + ": " + msg; }
+};
+
+(function() {
+    "use strict";
+
+    function el(id) { return document.getElementById(id); }
+    function randInt(a, b) { return Math.floor(Math.random() * (b - a + 1)) + a; }
+    function pick(arr) { return arr[randInt(0, arr.length - 1)]; }
+
+    var dino = el("dino"), obstacle = el("obstacle"), scoreBoard = el("score-board");
+    var livesDisplay = el("lives-display"), startMessage = el("start-message");
+    var bossWarning = el("boss-warning"), gateMarker = el("gate-marker");
+    var nextGateHint = el("next-gate-hint"), gateOverlay = el("gate-overlay");
+    var gateBelt = el("gate-belt"), gatePodArea = el("gate-pod-area");
+    var gateFeedbackText = el("gate-feedback-text"), gateFeedback = el("gate-feedback");
+    var gateBadge = el("gate-badge"), ttPopup = el("tt-popup");
+    var ttQuestion = el("tt-question"), ttInput = el("tt-input"), ttTimerFill = el("tt-timer-fill");
+
+    var score=0, lives=3, maxLives=5, isGameRunning=false, gameTimer;
+    var isPunching=false, isSuperPunching=false, isKicking=false;
+    var isBossDefeated=false, bossActive=false, scoreMultiplier=1;
+    var obstacleType="cactus", obstaclePosition=700, obstacleSpeed=5, hasCollided=false;
+    var GATE_INTERVAL=200, nextGateScore=GATE_INTERVAL, gateCount=0, gateActive=false;
+    var gateQuestion=null, gateAttempts=0, gateMode="toMixed";
+    var gateMarkerPos=-100, gateMarkerActive=false;
+    var qfActive=false, qfAnswer=0, qfTimer=null, qfTimeLeft=0;
+    var nextQFScore=GATE_INTERVAL/2, qfUsedThisCycle=false, qfType="tt";
+    var expandedCount=0;
+    var dinoNames=["Mama Rex","Papa Raptor","Auntie Stego","Uncle Bronto","Granny Trike","Cousin Ptera","Big Bertha","Dino Dave"];
+    var gateCheckFn = null; // overridden to closeGate after correct answer
+
+    function updateLives() { livesDisplay.textContent = "\u2764\uFE0F".repeat(Math.max(0, lives)); }
+
+    // Audio
+    var audioCtx;
+    function initAudio() {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioCtx.state === "suspended") audioCtx.resume();
+    }
+    function playSound(type) {
+        if (!audioCtx) return;
+        try {
+            var o = audioCtx.createOscillator(), g = audioCtx.createGain();
+            o.connect(g); g.connect(audioCtx.destination);
+            var n = audioCtx.currentTime;
+            if (type==="jump") { o.frequency.setValueAtTime(200,n); o.frequency.exponentialRampToValueAtTime(800,n+0.12); g.gain.setValueAtTime(0.04,n); g.gain.exponentialRampToValueAtTime(0.001,n+0.12); o.start(n); o.stop(n+0.12); }
+            else if (type==="coin") { o.type="sine"; o.frequency.setValueAtTime(880,n); o.frequency.linearRampToValueAtTime(1320,n+0.15); g.gain.setValueAtTime(0.04,n); g.gain.linearRampToValueAtTime(0,n+0.15); o.start(n); o.stop(n+0.15); }
+            else if (type==="kick") { o.type="square"; o.frequency.setValueAtTime(80,n); o.frequency.exponentialRampToValueAtTime(20,n+0.1); g.gain.setValueAtTime(0.06,n); g.gain.exponentialRampToValueAtTime(0.01,n+0.1); o.start(n); o.stop(n+0.1); }
+            else if (type==="hit") { o.type="sawtooth"; o.frequency.setValueAtTime(200,n); o.frequency.linearRampToValueAtTime(50,n+0.1); g.gain.setValueAtTime(0.04,n); g.gain.linearRampToValueAtTime(0,n+0.1); o.start(n); o.stop(n+0.1); }
+            else if (type==="gate") { o.type="sine"; o.frequency.setValueAtTime(523,n); g.gain.setValueAtTime(0.03,n); o.start(n); o.frequency.setValueAtTime(659,n+0.12); o.frequency.setValueAtTime(784,n+0.24); g.gain.linearRampToValueAtTime(0,n+0.4); o.stop(n+0.4); }
+            else if (type==="correct") { o.type="sine"; o.frequency.setValueAtTime(523,n); g.gain.setValueAtTime(0.04,n); o.start(n); o.frequency.setValueAtTime(659,n+0.1); o.frequency.setValueAtTime(784,n+0.2); o.frequency.setValueAtTime(1047,n+0.3); g.gain.linearRampToValueAtTime(0,n+0.5); o.stop(n+0.5); }
+            else if (type==="wrong") { o.type="square"; o.frequency.setValueAtTime(200,n); o.frequency.linearRampToValueAtTime(100,n+0.3); g.gain.setValueAtTime(0.03,n); g.gain.linearRampToValueAtTime(0,n+0.3); o.start(n); o.stop(n+0.3); }
+            else if (type==="life") { o.type="sine"; o.frequency.setValueAtTime(660,n); g.gain.setValueAtTime(0.04,n); o.start(n); o.frequency.setValueAtTime(880,n+0.1); o.frequency.setValueAtTime(1100,n+0.2); g.gain.linearRampToValueAtTime(0,n+0.35); o.stop(n+0.35); }
+        } catch(e){}
+    }
+
+    var cactusSVG='<svg viewBox="0 0 30 50"><path d="M13,50 L17,50 L17,12 C17,6 13,6 13,12 Z" fill="#27ae60"/><path d="M13,30 L8,30 C5,30 5,24 8,24 L13,24" fill="none" stroke="#27ae60" stroke-width="4" stroke-linecap="round"/><path d="M17,22 L22,22 C25,22 25,16 22,16 L17,16" fill="none" stroke="#27ae60" stroke-width="4" stroke-linecap="round"/></svg>';
+    var rockSVG='<svg viewBox="0 0 50 40"><path d="M5,40 L15,20 L30,10 L45,25 L50,40 Z" fill="#7f8c8d" stroke="#34495e" stroke-width="2"/></svg>';
+    var stickmanSVG='<svg viewBox="0 0 24 24" fill="none" stroke="#1a1a2e" stroke-width="2"><circle cx="12" cy="4" r="3"/><line x1="12" y1="7" x2="12" y2="16"/><line x1="12" y1="9" x2="8" y2="13"/><line x1="12" y1="9" x2="16" y2="7"/><line x1="12" y1="16" x2="9" y2="22"/><line x1="12" y1="16" x2="15" y2="22"/></svg>';
+    var bossSVG='<svg viewBox="0 0 24 40" fill="none" stroke="#1a1a2e" stroke-width="2"><text x="12" y="6" text-anchor="middle" fill="red" stroke="none" font-weight="bold" font-size="8">BB</text><circle cx="12" cy="10" r="4" stroke-width="3"/><line x1="12" y1="14" x2="12" y2="28" stroke-width="3"/><line x1="12" y1="18" x2="6" y2="22" stroke-width="3"/><line x1="12" y1="18" x2="18" y2="22" stroke-width="3"/><line x1="12" y1="28" x2="8" y2="38" stroke-width="3"/><line x1="12" y1="28" x2="16" y2="38" stroke-width="3"/></svg>';
+    var coinSVG='<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="#fbbf24" stroke="#f59e0b" stroke-width="2"/><text x="12" y="16" text-anchor="middle" font-size="12" font-weight="bold" fill="#d97706">$</text></svg>';
+
+    // === QUICK-FIRE ===
+    function generateTT() { var t=[2,3,4,5,6,10], a=pick(t), b=randInt(2,12); return {text:a+" \u00D7 "+b+" = ?", answer:a*b}; }
+    function generateAlgebra() {
+        var t=[2,3,4,5,6,10], a=pick(t), ans=randInt(2,12), p=a*ans;
+        var f=[{text:a+" \u00D7 a = "+p+"\na = ?",answer:ans},{text:"a \u00D7 "+a+" = "+p+"\na = ?",answer:ans},{text:p+" \u00F7 "+a+" = a\na = ?",answer:ans}];
+        return pick(f);
+    }
+
+    function openQuickFire() {
+        if (qfActive||gateActive||!isGameRunning||bossActive) return;
+        qfActive=true; qfUsedThisCycle=true;
+        var q; if (qfType==="tt") { q=generateTT(); ttPopup.className="tt-mode active"; el("tt-sub").textContent="Quick! Answer for an extra \u2764\uFE0F"; }
+        else { q=generateAlgebra(); ttPopup.className="alg-mode active"; el("tt-sub").textContent="Solve for a \u2014 earn an extra \u2764\uFE0F"; }
+        qfAnswer=q.answer; ttQuestion.textContent=q.text; ttInput.value=""; ttTimerFill.style.width="100%"; ttInput.focus();
+        qfTimeLeft=8000;
+        qfTimer=setInterval(function(){ qfTimeLeft-=50; ttTimerFill.style.width=Math.max(0,(qfTimeLeft/8000)*100)+"%"; if(qfTimeLeft<=0)closeQF(false); },50);
+    }
+    function checkQF() { var v=parseInt(ttInput.value,10); if(isNaN(v))return; closeQF(v===qfAnswer); }
+    function closeQF(ok) {
+        clearInterval(qfTimer); qfActive=false; ttPopup.className=""; qfType=(qfType==="tt")?"algebra":"tt";
+        if (ok&&lives<maxLives) { lives++; updateLives(); playSound("life"); var h=document.createElement("div"); h.className="heart-gain"; h.textContent="+\u2764\uFE0F"; el("game-container").appendChild(h); setTimeout(function(){h.remove();},1000); }
+        else if (ok) { score+=15; scoreBoard.textContent="Score: "+score; playSound("coin"); }
+        else playSound("wrong");
+    }
+
+    // === GAME ===
+    function startGame() {
+        if (isGameRunning) return; initAudio();
+        isGameRunning=true; score=0; lives=3; obstacleSpeed=5; isBossDefeated=false; bossActive=false; scoreMultiplier=1;
+        nextGateScore=GATE_INTERVAL; nextQFScore=GATE_INTERVAL/2; qfUsedThisCycle=false; qfType="tt";
+        gateCount=0; gateActive=false; gateMode="toMixed"; gateMarkerActive=false; gateMarkerPos=-100; gateCheckFn=null;
+        scoreBoard.textContent="Score: 0"; updateLives(); nextGateHint.textContent="Gate at: "+nextGateScore;
+        startMessage.style.display="none"; bossWarning.style.display="none"; gateMarker.style.display="none";
+        gateOverlay.classList.remove("active"); ttPopup.className=""; dino.classList.remove("dino-gold","dino-giant");
+        obstaclePosition=700; obstacle.style.left="700px"; spawnObstacle();
+        gameTimer=setInterval(gameLoop,20);
+    }
+    function spawnObstacle() {
+        obstacle.classList.remove("defeated","rock-smashed"); obstacle.style.opacity="1"; obstacle.style.bottom="22px";
+        var r=Math.random();
+        if(score>80&&r>0.88&&obstacleType!=="boss"){obstacleType="coin";obstacle.className="obstacle-coin";obstacle.innerHTML=coinSVG;return;}
+        if(score>=200&&!isBossDefeated){obstacleType="boss";obstacle.className="obstacle-boss";obstacle.innerHTML=bossSVG;bossWarning.style.display="block";bossActive=true;}
+        else if(isBossDefeated){bossWarning.style.display="none";bossActive=false;if(r>0.5){obstacleType="rock";obstacle.className="obstacle-rock";obstacle.innerHTML=rockSVG;}else{obstacleType="cactus";obstacle.className="obstacle-cactus";obstacle.innerHTML=cactusSVG;}}
+        else if(score>=100){if(r>0.6){obstacleType="stickman";obstacle.className="obstacle-stickman";obstacle.innerHTML=stickmanSVG;}else{obstacleType="cactus";obstacle.className="obstacle-cactus";obstacle.innerHTML=cactusSVG;}}
+        else{obstacleType="cactus";obstacle.className="obstacle-cactus";obstacle.innerHTML=cactusSVG;}
+    }
+    function gameLoop() {
+        if(!isGameRunning||gateActive||qfActive) return;
+        obstaclePosition-=obstacleSpeed; obstacle.style.left=obstaclePosition+"px";
+        if(gateMarkerActive){gateMarkerPos-=obstacleSpeed;gateMarker.style.left=gateMarkerPos+"px";if(gateMarkerPos<=80&&gateMarkerPos>60){openFractionGate();return;}if(gateMarkerPos<-100){gateMarkerActive=false;gateMarker.style.display="none";}}
+        if(obstaclePosition<-100){if(!hasCollided&&obstacleType!=="boss"&&obstacleType!=="coin")score+=10*scoreMultiplier;updateStatus();hasCollided=false;if(obstacleType==="boss"&&!isBossDefeated)obstaclePosition=700;else{obstaclePosition=700+Math.random()*200;spawnObstacle();}if(score%50===0&&score>0)obstacleSpeed=Math.min(10,obstacleSpeed+0.3);}
+        checkCollision();
+    }
+    function updateStatus() {
+        scoreBoard.textContent="Score: "+score; if(score>=300)dino.classList.add("dino-giant");
+        if(!qfUsedThisCycle&&score>=nextQFScore&&!gateActive&&!qfActive&&!bossActive)openQuickFire();
+        if(!gateMarkerActive&&!bossActive&&score>=nextGateScore-50&&score<nextGateScore){gateMarkerActive=true;gateMarkerPos=750;gateMarker.style.display="block";gateMarker.style.left="750px";}
+        if(!bossActive&&score>=nextGateScore&&!gateActive&&!gateMarkerActive){gateMarkerActive=true;gateMarkerPos=750;gateMarker.style.display="block";gateMarker.style.left="750px";}
+        nextGateHint.textContent="Gate at: "+nextGateScore;
+    }
+    function activateGoldMode(){dino.classList.add("dino-gold");scoreMultiplier=2;playSound("coin");setTimeout(function(){dino.classList.remove("dino-gold");scoreMultiplier=1;},8000);}
+    function checkCollision() {
+        var d=dino.getBoundingClientRect(),o=obstacle.getBoundingClientRect();
+        if(o.left<d.right-10&&o.right>d.left+10&&d.bottom>o.top+10){
+            if(hasCollided)return;
+            if(obstacleType==="coin"){score+=30;activateGoldMode();hasCollided=true;obstacle.style.opacity="0";}
+            else if(obstacleType==="boss"){if(isSuperPunching){score+=50;isBossDefeated=true;bossActive=false;playSound("hit");obstacle.classList.add("defeated");bossWarning.style.display="none";hasCollided=true;}else takeDamage();}
+            else if(obstacleType==="rock"){if(isKicking){score+=20*scoreMultiplier;playSound("kick");obstacle.classList.add("rock-smashed");hasCollided=true;}else takeDamage();}
+            else if(obstacleType==="stickman"){if(isPunching||isSuperPunching){score+=10*scoreMultiplier;playSound("hit");obstacle.classList.add("defeated");hasCollided=true;}else takeDamage();}
+            else takeDamage();
+            updateStatus();
+        }
+    }
+    function takeDamage(){lives--;hasCollided=true;updateLives();playSound("wrong");dino.style.opacity="0.3";setTimeout(function(){dino.style.opacity="1";},150);setTimeout(function(){dino.style.opacity="0.3";},300);setTimeout(function(){dino.style.opacity="1";},450);obstaclePosition=-120;if(lives<=0)gameOver();}
+    function gameOver(){isGameRunning=false;clearInterval(gameTimer);clearInterval(qfTimer);ttPopup.className="";el("start-title").textContent="Game Over!";el("start-desc").textContent="Final score: "+score+". You cleared "+gateCount+" fraction gate"+(gateCount!==1?"s":"")+".";startMessage.querySelector(".start-btn").textContent="\u25B6 Play Again";startMessage.style.display="flex";}
+
+    // === FRACTION GATE ===
+    function genQ(){var d=pick([2,3,4,5]),w=randInt(1,3),r=randInt(1,d-1);return{numerator:w*d+r,denominator:d,wholes:w,remainder:r};}
+
+    function openFractionGate(){
+        gateActive=true;gateMarkerActive=false;gateMarker.style.display="none";gateAttempts=0;gateCount++;playSound("gate");gateCheckFn=null;expandedCount=0;
+        gateQuestion=genQ();var q=gateQuestion,name=pick(dinoNames);
+        gateBadge.textContent="Gate "+gateCount;
+        if(gateMode==="toMixed"){renderToMixed(q,name);gateMode="toImproper";}
+        else{renderToImproper(q,name);gateMode="toMixed";}
+        el("gate-check").textContent="\u2705 Check";el("gate-auto").style.display="";el("gate-skip").style.display="";
+        gateOverlay.classList.add("active");
+    }
+
+    function renderToMixed(q,name){
+        el("gate-title-text").textContent="Dino Nest Gate";
+        el("gate-story").innerHTML='<strong>'+name+'</strong> has laid <strong>'+q.numerator+'</strong> eggs! Each nest holds <strong>'+q.denominator+'</strong>. How many full nests, and how many left over?';
+        el("gate-problem").innerHTML='<span class="gate-problem-label">Eggs to sort:</span><div class="gate-fraction"><span class="num">'+q.numerator+'</span><span class="den">'+q.denominator+'</span></div><span class="gate-hint-text">Bottom number ('+q.denominator+') = nest size. You have '+q.numerator+' eggs!</span>';
+        el("gate-visual-title").textContent="\uD83E\uDEB9 Drag the eggs into the nests";
+        renderEggsNests(q);
+        el("gate-answer-section").innerHTML='<div class="gate-answer-title">\u270F\uFE0F Write the mixed number</div><div class="gate-answer-row"><label>Full nests:</label><input type="number" class="gate-input" id="gate-wholes" inputmode="numeric" pattern="[0-9]*" placeholder="?"><label>leftover eggs:</label><div class="gate-answer-group"><input type="number" class="gate-input" id="gate-remainder" inputmode="numeric" pattern="[0-9]*" placeholder="?"><div class="gate-frac-line"></div><span class="gate-denom-display">'+q.denominator+'</span></div></div>';
+        setFB("Drag the eggs into the nests. Count the full ones and the leftovers!",null);
+    }
+    function renderToImproper(q,name){
+        el("gate-title-text").textContent="Egg Counter Gate";
+        el("gate-story").innerHTML='<strong>'+name+'</strong> has <strong>'+q.wholes+'</strong> full nest'+(q.wholes>1?'s':'')+' (each holding <strong>'+q.denominator+'</strong>) and <strong>'+q.remainder+'</strong> loose egg'+(q.remainder>1?'s':'')+'. How many eggs altogether as a single fraction?';
+        el("gate-problem").innerHTML='<span class="gate-problem-label">Mixed number:</span><div class="gate-mixed"><span>'+q.wholes+'</span><div class="gate-fraction"><span class="num">'+q.remainder+'</span><span class="den">'+q.denominator+'</span></div></div><span class="gate-hint-text">Tap each nest to open it and count the eggs!</span>';
+        el("gate-visual-title").textContent="\uD83E\uDEB9 Tap the nests to open them";
+        renderCrates(q);
+        el("gate-answer-section").innerHTML='<div class="gate-answer-title">\u270F\uFE0F Write the improper fraction</div><div class="gate-answer-row"><label>Step 1:</label><span class="gate-step-label">'+q.wholes+' \u00D7 '+q.denominator+' =</span><input type="number" class="gate-input" id="gate-product" inputmode="numeric" pattern="[0-9]*" placeholder="?"><span class="gate-step-label">eggs from nests</span></div><div class="gate-answer-row"><label>Step 2:</label><span class="gate-step-label">+ '+q.remainder+' loose =</span><input type="number" class="gate-input" id="gate-total" inputmode="numeric" pattern="[0-9]*" placeholder="?"><span class="gate-step-label">total eggs</span></div><div class="gate-answer-row"><label>Fraction:</label><div class="gate-answer-group"><input type="number" class="gate-input" id="gate-numerator" inputmode="numeric" pattern="[0-9]*" placeholder="?"><div class="gate-frac-line"></div><span class="gate-denom-display">'+q.denominator+'</span></div></div>';
+        setFB("Tap each nest to open it. Count all the eggs, then write the fraction!",null);
+    }
+    function renderEggsNests(q){
+        gateBelt.innerHTML='<span class="gate-belt-label">\uD83E\uDD5A Eggs:</span>';gatePodArea.innerHTML="";
+        for(var i=0;i<q.numerator;i++){var e=document.createElement("div");e.className="gate-egg";e.draggable=true;e.dataset.cubeId="ge"+i;e.addEventListener("dragstart",onDS);e.addEventListener("touchstart",onTS,{passive:false});gateBelt.appendChild(e);}
+        var mx=Math.ceil(q.numerator/q.denominator)+1;
+        for(var j=0;j<mx;j++){var n=document.createElement("div");n.className="gate-nest";n.dataset.count="0";n.dataset.capacity=String(q.denominator);n.innerHTML='<div class="gate-nest-header"><span>\uD83E\uDEB9 Nest <strong>'+(j+1)+'</strong></span><span class="gate-nest-slots">'+q.denominator+' eggs</span></div><div class="gate-nest-inner" data-pod-id="gn'+j+'"></div>';var inner=n.querySelector(".gate-nest-inner");inner.addEventListener("dragover",function(ev){ev.preventDefault();});inner.addEventListener("drop",onDR);gatePodArea.appendChild(n);}
+    }
+    function renderCrates(q){
+        gateBelt.innerHTML='<span class="gate-belt-label">\uD83E\uDD5A Eggs counted:</span>';gatePodArea.innerHTML="";
+        for(var i=0;i<q.wholes;i++){var n=document.createElement("div");n.className="gate-nest crate-closed";n.dataset.opened="false";n.innerHTML='<div class="gate-nest-header"><span>\uD83D\uDCE6 Nest <strong>'+(i+1)+'</strong></span><span class="gate-nest-slots">'+q.denominator+' inside</span></div><div class="gate-nest-inner"><span class="crate-label">Tap to open</span></div>';n.addEventListener("click",function(){expandCrate(this);});gatePodArea.appendChild(n);}
+        var loose=document.createElement("div");loose.className="gate-nest";loose.innerHTML='<div class="gate-nest-header"><span>Loose eggs</span><span class="gate-nest-slots">'+q.remainder+'</span></div><div class="gate-nest-inner"></div>';
+        var li=loose.querySelector(".gate-nest-inner");
+        for(var k=0;k<q.remainder;k++){var eg=document.createElement("div");eg.className="gate-egg";li.appendChild(eg);var be=document.createElement("div");be.className="gate-egg";gateBelt.appendChild(be);}
+        gatePodArea.appendChild(loose);
+    }
+    function expandCrate(nest){
+        if(!gateQuestion||nest.dataset.opened==="true")return;nest.dataset.opened="true";
+        nest.classList.remove("crate-closed");nest.classList.add("crate-open","full");
+        var inner=nest.querySelector(".gate-nest-inner");inner.innerHTML="";var q=gateQuestion;
+        for(var i=0;i<q.denominator;i++){var eg=document.createElement("div");eg.className="gate-egg";inner.appendChild(eg);var be=document.createElement("div");be.className="gate-egg";gateBelt.appendChild(be);}
+        var hdr=nest.querySelector(".gate-nest-header span:first-child");if(hdr)hdr.innerHTML='\uD83E\uDEB9 Nest <strong>Open \u2705</strong>';
+        expandedCount++;
+        if(expandedCount===q.wholes){var tp=q.wholes*q.denominator;setFB("All nests open! "+q.wholes+" \u00D7 "+q.denominator+" = "+tp+", plus "+q.remainder+" loose = <strong>"+(tp+q.remainder)+"</strong> eggs.",null);}
+    }
+
+    // Drag
+    function onDS(ev){ev.dataTransfer.effectAllowed="move";ev.dataTransfer.setData("text/plain",ev.target.dataset.cubeId);}
+    function onDR(ev){ev.preventDefault();var egg=document.querySelector('.gate-egg[data-cube-id="'+ev.dataTransfer.getData("text/plain")+'"]');if(egg)dropEgg(egg,ev.currentTarget);}
+    function dropEgg(egg,ni){var nest=ni.parentElement;var cap=parseInt(nest.dataset.capacity||"0",10),cnt=parseInt(nest.dataset.count||"0",10);if(cnt>=cap)return;ni.appendChild(egg);nest.dataset.count=String(cnt+1);if(cnt+1===cap){nest.classList.add("full");var h=nest.querySelector(".gate-nest-header span:first-child");if(h)h.innerHTML='\uD83E\uDEB9 Nest <strong>Full \u2705</strong>';}}
+
+    // Touch drag
+    var tEgg=null,tClone=null;
+    function onTS(ev){ev.preventDefault();tEgg=ev.target.closest(".gate-egg");if(!tEgg)return;tClone=tEgg.cloneNode(true);tClone.style.cssText="position:fixed;pointer-events:none;z-index:200;opacity:0.8;transform:scale(1.2)";document.body.appendChild(tClone);var t=ev.touches[0];tClone.style.left=(t.clientX-13)+"px";tClone.style.top=(t.clientY-16)+"px";document.addEventListener("touchmove",onTM,{passive:false});document.addEventListener("touchend",onTE,{once:true});}
+    function onTM(ev){ev.preventDefault();if(!tClone)return;var t=ev.touches[0];tClone.style.left=(t.clientX-13)+"px";tClone.style.top=(t.clientY-16)+"px";}
+    function onTE(ev){document.removeEventListener("touchmove",onTM);if(tClone){tClone.remove();tClone=null;}if(!tEgg)return;var t=ev.changedTouches[0],target=document.elementFromPoint(t.clientX,t.clientY);if(target){var ni=target.closest(".gate-nest-inner");if(ni)dropEgg(tEgg,ni);}tEgg=null;}
+
+    function setFB(msg,type){gateFeedback.classList.remove("correct","wrong");if(type==="correct")gateFeedback.classList.add("correct");else if(type==="wrong")gateFeedback.classList.add("wrong");gateFeedbackText.innerHTML=msg;}
+
+    function checkGateAnswer(){
+        if(gateCheckFn){gateCheckFn();return;}
+        if(!gateQuestion)return;var q=gateQuestion;
+        var wEl=el("gate-wholes"),rEl=el("gate-remainder"),pEl=el("gate-product"),tEl=el("gate-total"),nEl=el("gate-numerator");
+        if(wEl&&rEl){
+            var w=parseInt(wEl.value,10),r=parseInt(rEl.value,10);
+            if(isNaN(w)||isNaN(r)){setFB("<strong>Hmm!</strong> Fill in both boxes.","wrong");playSound("wrong");return;}
+            if(w===q.wholes&&r===q.remainder){gateCorrect(q.numerator+"/"+q.denominator+" = "+q.wholes+" and "+q.remainder+"/"+q.denominator+". That is "+q.wholes+" full nest"+(q.wholes>1?"s":"")+" with "+q.remainder+" egg"+(q.remainder>1?"s":"")+" left over.");}
+            else{gateAttempts++;playSound("wrong");var h=(w!==q.wholes&&r!==q.remainder)?"Both parts need another look.":w!==q.wholes?"Leftovers are right, check the full nests.":"Full nests are right! Check the leftover eggs.";setFB("<strong>Not quite!</strong> "+h,"wrong");}
+        } else if(pEl&&tEl&&nEl){
+            var p=parseInt(pEl.value,10),t=parseInt(tEl.value,10),n=parseInt(nEl.value,10);
+            var ep=q.wholes*q.denominator,et=ep+q.remainder;
+            if(isNaN(p)||isNaN(t)||isNaN(n)){setFB("<strong>Hmm!</strong> Fill in all three steps.","wrong");playSound("wrong");return;}
+            if(p!==ep){gateAttempts++;playSound("wrong");setFB("<strong>Check step 1.</strong> "+q.wholes+" \u00D7 "+q.denominator+" = "+ep+".","wrong");return;}
+            if(t!==et){gateAttempts++;playSound("wrong");setFB("<strong>Check step 2.</strong> "+ep+" + "+q.remainder+" = "+et+".","wrong");return;}
+            if(n!==q.numerator){gateAttempts++;playSound("wrong");setFB("<strong>Nearly!</strong> Your total is "+et+", so that is the numerator.","wrong");return;}
+            gateCorrect(q.wholes+" and "+q.remainder+"/"+q.denominator+" = "+q.numerator+"/"+q.denominator+". "+q.wholes+" \u00D7 "+q.denominator+" + "+q.remainder+" = "+q.numerator+" eggs!");
+        }
+    }
+    function gateCorrect(expl){
+        playSound("correct");var b=gateAttempts===0?100:gateAttempts===1?75:50;score+=b;scoreBoard.textContent="Score: "+score;
+        setFB("<strong>Brilliant!</strong> "+expl+" <strong>+"+b+" bonus!</strong> \uD83E\uDD95\uD83C\uDF89","correct");
+        el("gate-check").textContent="\uD83E\uDD95 Keep running!";gateCheckFn=closeGate;
+        el("gate-auto").style.display="none";el("gate-skip").style.display="none";
+        var pop=document.createElement("div");pop.className="reward-pop";pop.textContent="+"+b+" \uD83E\uDD5A";el("gate-panel").appendChild(pop);setTimeout(function(){pop.remove();},1000);
+    }
+    function gateAutoFill(){
+        if(!gateQuestion)return;var q=gateQuestion;
+        var wEl=el("gate-wholes"),rEl=el("gate-remainder"),pEl=el("gate-product"),tEl=el("gate-total"),nEl=el("gate-numerator");
+        if(wEl&&rEl){
+            var eggs=Array.from(gateBelt.querySelectorAll(".gate-egg")),nests=Array.from(gatePodArea.querySelectorAll(".gate-nest")),idx=0;
+            nests.forEach(function(nest){var cap=parseInt(nest.dataset.capacity||"0",10),ni=nest.querySelector(".gate-nest-inner");if(!ni)return;var f=parseInt(nest.dataset.count||"0",10);while(f<cap&&idx<eggs.length){ni.appendChild(eggs[idx]);f++;idx++;}nest.dataset.count=String(f);if(f===cap){nest.classList.add("full");var h=nest.querySelector(".gate-nest-header span:first-child");if(h)h.innerHTML='\uD83E\uDEB9 Nest <strong>Full \u2705</strong>';}});
+            wEl.value=String(q.wholes);rEl.value=String(q.remainder);setFB("Sorted! <strong>"+q.wholes+"</strong> full, <strong>"+q.remainder+"</strong> leftover. Press Check!",null);
+        } else if(pEl&&tEl&&nEl){
+            document.querySelectorAll(".crate-closed").forEach(function(c){expandCrate(c);});
+            var ep=q.wholes*q.denominator;pEl.value=String(ep);tEl.value=String(ep+q.remainder);nEl.value=String(q.numerator);
+            setFB("All opened! "+q.wholes+"\u00D7"+q.denominator+"="+ep+", +"+q.remainder+"="+q.numerator+". Press Check!",null);
+        }
+    }
+    function gateSkip(){var q=gateQuestion;setFB("Skipped. Answer: "+q.wholes+" and "+q.remainder+"/"+q.denominator+" = "+q.numerator+"/"+q.denominator+".",null);setTimeout(closeGate,1200);}
+    function closeGate(){
+        gateActive=false;gateCheckFn=null;gateOverlay.classList.remove("active");nextGateScore+=GATE_INTERVAL;nextQFScore=nextGateScore-GATE_INTERVAL/2;qfUsedThisCycle=false;expandedCount=0;
+        nextGateHint.textContent="Gate at: "+nextGateScore;el("gate-check").textContent="\u2705 Check";
+        if(gateAttempts<=1)activateGoldMode();obstaclePosition=700+Math.random()*200;spawnObstacle();
+    }
+
+    // === CONTROLS ===
+    function doJump(){if(!isGameRunning){startGame();return;}if(gateActive||qfActive)return;if(dino.classList.contains("animate-jump"))return;playSound("jump");dino.classList.add("animate-jump");setTimeout(function(){dino.classList.remove("animate-jump");},600);}
+    function doPunch(){if(!isGameRunning||isPunching||gateActive||qfActive)return;isPunching=true;dino.classList.add("dino-punching");setTimeout(function(){dino.classList.remove("dino-punching");isPunching=false;},300);}
+    function doSuperPunch(){if(!isGameRunning||isSuperPunching||gateActive||qfActive)return;isSuperPunching=true;dino.classList.add("dino-super-punching");setTimeout(function(){dino.classList.remove("dino-super-punching");isSuperPunching=false;},400);}
+    function doKick(){if(!isGameRunning||isKicking||gateActive||qfActive)return;isKicking=true;dino.classList.add("dino-kicking");setTimeout(function(){dino.classList.remove("dino-kicking");isKicking=false;},300);}
+
+    document.addEventListener("keydown",function(ev){
+        if(ev.code==="Space"&&!gateActive&&!qfActive){doJump();ev.preventDefault();}
+        if((ev.key==="a"||ev.key==="A")&&!gateActive&&!qfActive)doPunch();
+        if((ev.key==="w"||ev.key==="W")&&!gateActive&&!qfActive)doSuperPunch();
+        if((ev.key==="s"||ev.key==="S")&&!gateActive&&!qfActive)doKick();
+        if(ev.key==="Enter"&&gateActive)checkGateAnswer();
+        if(ev.key==="Enter"&&qfActive)checkQF();
+    });
+
+    el("tt-go").addEventListener("click",function(){checkQF();});
+
+    // Expose to global for inline onclick handlers (most reliable on iOS)
+    window.DINO = {
+        start: startGame,
+        jump: doJump,
+        punch: doPunch,
+        superPunch: doSuperPunch,
+        kick: doKick,
+        gateCheck: checkGateAnswer,
+        gateHint: gateAutoFill,
+        gateSkip: gateSkip,
+        qfGo: checkQF
+    };
+
+})();
+</script>
+</body>
+</html>
